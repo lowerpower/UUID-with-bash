@@ -6,21 +6,28 @@
 #
 #  https://github.com/lowerpower
 #
-#  Generates UUID in the formate 00000000-0000-0000-0000-000000000000
+#  Generates UUID in the format 00000000-0000-0000-0000-000000000000
+#
+#  
+#
 
 #### Settings #####
 VERSION=0.0.1
 MODIFIED="May 11, 2016"
 #
 # Defaults
+USE_CLOCK_SEQ=0
 CLOCK_SEQ="/etc/uuid/cs.txt"
 TIMESTAMP="/etc/uuid/ts.txt"
 VERBOSE=0
 
+
+# instead of hadcoding the 100's of nanoseconds to base on for 1 Jan 1970 offset
+# lets caclulate it so it is clear what is going on.
 # found at https://github.com/remind101/tugboat
-julian=2299160          #Julian day of 15 Oct 1582
-unix=2440587            #Julian day of 1 Jan 1970
-epoch=$(expr $unix - $julian)
+julian=2299160                              #Julian day of 15 Oct 1582
+unix=2440587                                #Julian day of 1 Jan 1970
+epoch=$(expr $unix - $julian)               #differnce between epocs
 g1582=$(expr $epoch \* 86400)               # seconds between epochs
 g1582ns100=$(expr $g1582 \* 10000000)     #100s of a nanoseconds between epochs
 
@@ -46,8 +53,9 @@ printf "\n%s\n\n\n" "$man_text"
 #
 usage()
 {
-    echo "Usage: $0 <flags> command <uid>" >&2
-    echo "  commands : types typesl status enable disable start stop restart create delete login logout" >&2
+    echo "Usage: $0 <flags> command <mac>" >&2
+    echo "  flags -v=verbose -h=help -m=manpage ">&2
+    echo "  commands : 0=null uuid, 1= version 1 uuid <mac required>, 4=version 4 uuid " >&2
     echo "Version $VERSION Build $MODIFIED" >&2
     exit 1
 }
@@ -63,6 +71,9 @@ generate_uuid_null()
     echo "00000000-0000-0000-0000-000000000000"
 }
 
+#
+# Generate time and mac based UUID
+#
 # $1 is mac
 generate_uuid_v1()
 {
@@ -93,10 +104,12 @@ generate_uuid_v1()
     printf "0000-"
     # print MAC
     printf "%s" $mac
-
 }
 
 
+#
+# Generate Compleatly Random UUID based on urandom
+#
 generate_uuid_v4()
 {
     eight=$(tr -dc a-f0-9 < /dev/urandom | dd bs=8 count=1 2> /dev/null)
@@ -134,7 +147,6 @@ done
 
 # get rid of the just-finished flag arguments
 shift $(($OPTIND-1))
-
 
 #switch on version
 command=$1
