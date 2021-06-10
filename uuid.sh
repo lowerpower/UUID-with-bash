@@ -158,7 +158,7 @@ setMulticast()
 
 generate_uuid_null()
 {
-    echo "00000000-0000-0000-0000-000000000000"
+    printf "00000000-0000-0000-0000-000000000000"
 }
 
 #
@@ -239,18 +239,22 @@ generate_uuid_v4()
 #---------------------------------------------------------------------------
 # Main Program Starts Here
 #---------------------------------------------------------------------------
-
+linefeed=0
 ################################################
 # parse the flag options (and their arguments) #
 ################################################
-while getopts vhm OPT; do
+while getopts vhlm OPT; do
     case "$OPT" in
       m)
         manpage
         exit 0
         ;;
       v)
-        VERBOSE=$((VERBOSE+1)) ;;
+        VERBOSE=$((VERBOSE+1)) 
+        ;;
+      l)
+        linefeed=1
+        ;;
       h | [?])
         # got invalid option
         usage
@@ -294,6 +298,11 @@ case "$command" in
         exit 1
         ;;
 esac
+
+# send a linefeed?
+if [ 1 == $linefeed ]; then
+    printf "\n"
+fi
 
 exit 0
 
