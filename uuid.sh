@@ -4,21 +4,93 @@
 #
 #  generate_id.sh <version> <MAC> 
 #
-#  https://github.com/lowerpower
+#  https://github.com/lowerpower/UUID-with-bash
 #
 #  Generates UUID in the format 00000000-0000-0000-0000-000000000000
+#  Octet Numbers				00112233-4455-6677-8899-AABBCCDDEEFF
 #
 #  
+#Field                  Data Type     Octet  Note
+#
+#time_low               unsigned 32   0-3    The low field of the
+#                       bit integer          timestamp
+#
+#time_mid               unsigned 16   4-5    The middle field of the
+#                       bit integer          timestamp
+#
+#time_hi_and_version    unsigned 16   6-7    The high field of the
+#                       bit integer          timestamp multiplexed
+#                                            with the version number
+#
+#clock_seq_hi_and_rese  unsigned 8    8      The high field of the 
+#rved                   bit integer          clock sequence
+#                                            multiplexed with the
+#                                            variant
+#
+#clock_seq_low          unsigned 8    9      The low field of the
+#                       bit integer          clock sequence
+#
+#node                   unsigned 48   10-15  The spatially unique
+#                       bit integer          node identifier
+#
+#
+#0                   1                   2                   3
+# 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+#+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#|                          time_lowi(0-3)                       |
+#+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#|       time_mid(4-5)           |  time_hi_and_version(6-7)     |
+#+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#|clk_seq_hi_res |clk_seq_low(9) |         node 0-1 (10-11)      |
+#+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#|                         node (12-15)                          |
+#+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#
+#
+# Version  xxxxxxxx-xxxx-Vxxx-xxxx-xxxxxxxxxxxx
+#Msb0  Msb1  Msb2  Msb3   Version  Description
+#
+# 0     0     0     1        1     The time-based version
+#                                  specified in this document.
+#
+# 0     0     1     0        2     DCE Security version, with
+#                                  embedded POSIX UIDs.
+#
+# 0     0     1     1        3     The name-based version
+#                                  specified in this document
+#                                  that uses MD5 hashing.
+#
+# 0     1     0     0        4     The randomly or pseudo-
+#                                  randomly generated version
+#                                  specified in this document.
+#
+# 0     1     0     1        5     The name-based version
+#                                  specified in this document
+#                                  that uses SHA-1 hashing.
+#
+#
+# Variant  xxxxxxxx-xxxx-xxxx-Vxxx-xxxxxxxxxxxx
+#Msb0  Msb1  Msb2  Description
+#
+# 0     x     x    Reserved, NCS backward compatibility.
+#
+# 1     0     x    The variant specified in this document (RFC4122)
+#
+# 1     1     0    Reserved, Microsoft Corporation backward
+#                  compatibility
+#
+# 1     1     1    Reserved for future definition.
+#
 #
 
 #### Settings #####
-VERSION=0.0.1
-MODIFIED="May 11, 2016"
+VERSION=0.0.2
+MODIFIED="June 9, 2021"
 #
 # Defaults
 USE_CLOCK_SEQ=0
-CLOCK_SEQ="/etc/uuid/cs.txt"
-TIMESTAMP="/etc/uuid/ts.txt"
+#CLOCK_SEQ="/etc/uuid/cs.txt"
+#TIMESTAMP="/etc/uuid/ts.txt"
 VERBOSE=0
 
 
@@ -55,7 +127,7 @@ usage()
 {
     echo "Usage: $0 <flags> command <mac>" >&2
     echo "  flags -v=verbose -h=help -m=manpage ">&2
-    echo "  commands : 0=null uuid, 1= version 1 uuid <mac required>, 4=version 4 uuid " >&2
+    echo "  commands : 0=null uuid, 1= version 1 uuid <mac optional> Random MAC if not specified, 4=version 4 uuid " >&2
     echo "Version $VERSION Build $MODIFIED" >&2
     exit 1
 }
@@ -64,6 +136,24 @@ usage()
 dec2hex()
 {
     printf "%x" $1
+}
+
+setVariant()
+{
+    # set Variant  RFC 4122  01xx xxxx xxxx xxxx
+	printf "%x" $(((0x$1 & 0x3fff) | 0x8000))
+}
+
+setVersion4()
+{
+	#set ver 4
+    #Set the two most significant bits (bits 6 and 7) of the clock_seq_hi_and_reserved (8) to zero and one, respectively.	
+	printf "%x" $(((0x$1 & 0x0fff) | 0x4000))
+}
+
+setMulticast()
+{
+    printf "%x" $((0x$1 | 0x010000000000))
 }
 
 generate_uuid_null()
@@ -99,11 +189,26 @@ generate_uuid_v1()
     printf "%s-" ${hex_time_100: -12: 4}
     #time_hi and version
     printf "%s-" ${hex_time_100: -16: 4}
-    # clock seq_hi and reserved + clock_seq_low, for now we do not support, just zero
-    # need to add this feature
-    printf "0000-"
-    # print MAC
-    printf "%s" $mac
+    # clock seq_hi and reserved + clock_seq_low, for now we do not support, just randomize
+    # re RFC4122 (If the previous value of the clock sequence is known, it can just be incremented; otherwise it should be set to a random or high-quality pseudo-random value.)
+    # need to add this feature, we set variant to 10
+    clock=$(tr -dc a-f0-9 < /dev/urandom | dd bs=8 count=1 2> /dev/null)
+    clock=$(setVariant $clock)
+   
+    #if mac not set randomize :  For systems with no IEEE address, a randomly or pseudo-randomly generated value may be used.
+    # The multicast bit must be set in such addresses, in order that they will never conflict with addresses obtained from network cards.
+    #if $1 or mac is not set or zero we randomize
+    if [ -z "${mac}" ]; then
+        # mac is not set or set to an empty string, lets randomize it
+        mac=$(tr -dc a-f0-9 < /dev/urandom | dd bs=12 count=1 2> /dev/null)
+        #
+        #force unicast bit on
+        mac=$(setMulticast $mac)
+    fi
+
+
+    # print clock and MAC
+    printf "%s-%s" $clock $mac
 }
 
 
@@ -112,13 +217,21 @@ generate_uuid_v1()
 #
 generate_uuid_v4()
 {
-    eight=$(tr -dc a-f0-9 < /dev/urandom | dd bs=8 count=1 2> /dev/null)
-    four1=$(tr -dc a-f0-9 < /dev/urandom | dd bs=4 count=1 2> /dev/null)
-    four2=$(tr -dc a-f0-9 < /dev/urandom | dd bs=4 count=1 2> /dev/null)
-    four3=$(tr -dc a-f0-9 < /dev/urandom | dd bs=4 count=1 2> /dev/null)
-    twelve=$(tr -dc a-f0-9 < /dev/urandom | dd bs=12 count=1 2> /dev/null)
-    
-    printf "${eight}-${four1}-${four2}-${four3}-${twelve}"
+	#first 4 octets (set1)  (XXXXXXXX-0000-0000-0000-000000000000)
+    eight1=$(tr -dc a-f0-9 < /dev/urandom | dd bs=8 count=1 2> /dev/null)
+    #next 2 octets   (00000000-XXXX-0000-0000-000000000000)
+	four2=$(tr -dc a-f0-9 < /dev/urandom | dd bs=4 count=1 2> /dev/null)
+    #next 2 octets less 4msb   (00000000-0000-XXXX-0000-000000000000)
+    #Version  xxxxxxxx-xxxx-Vxxx-xxxx-xxxxxxxxxxxx
+    three3=$(tr -dc a-f0-9 < /dev/urandom | dd bs=3 count=1 2> /dev/null)
+    #next 2 octets less  (00000000-0000-0000-XXXX-000000000000)
+    four4=$(tr -dc a-f0-9 < /dev/urandom | dd bs=4 count=1 2> /dev/null)
+    four4=$(setVariant $four4)
+    #last 6 octets   (00000000-0000-0000-0000-XXXXXXXXXXXX)
+    twelve5=$(tr -dc a-f0-9 < /dev/urandom | dd bs=12 count=1 2> /dev/null)
+   
+    #we prepend the version 4 before the 3 nibbels of the 3rd set
+    printf "${eight1}-${four2}-4${three3}-${four4}-${twelve5}"
 }
 
 
@@ -183,10 +296,6 @@ case "$command" in
 esac
 
 exit 0
-
-
-
-
 
 
 
