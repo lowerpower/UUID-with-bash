@@ -8,29 +8,38 @@ cryoto secure.
 ## Usage Examples
 
 * Generate a NULL UID (UUID V0)
->dood:~/$ ./uuid.sh 0
->00000000-0000-0000-0000-000000000000dood:~/$
-
+```
+dood:~/$ ./uuid.sh 0
+00000000-0000-0000-0000-000000000000dood:~/$
+```
 With linefeed
->dood:~/$ ./uuid.sh -l 0
->00000000-0000-0000-0000-000000000000
->dood:~/$
+```
+dood:~/$ ./uuid.sh -l 0
+00000000-0000-0000-0000-000000000000
+dood:~/$
+```
 
 * Generate a Version 1 UUID with MAC
->./uuid.sh -l 1 01:02:03:04:05:06:07
->5fbc369a-ca05-11eb-af04-01020304050607
-
+```
+./uuid.sh -l 1 01:02:03:04:05:06:07
+5fbc369a-ca05-11eb-af04-01020304050607
+```
 Without Colons 
->./uuid.sh -l 1 010203040506
->941772b9-ca05-11eb-82cd-010203040506
+```
+./uuid.sh -l 1 010203040506
+941772b9-ca05-11eb-82cd-010203040506
+```
 
 * Generate a Version 1 UUID without MAC (Random)
->./uuid.sh -l 1 
->af7f613c-ca05-11eb-aa29-15043316f21e
-
+```
+./uuid.sh -l 1 
+af7f613c-ca05-11eb-aa29-15043316f21e
+```
 * Generate a Version 4 UUID
->./uuid.sh -l 4
->6a8b307d-82f6-4c66-8a58-0073b8941ff7
+```
+./uuid.sh -l 4
+6a8b307d-82f6-4c66-8a58-0073b8941ff7
+```
 
 ## Verifing UUID's
 This is a great site to verify UUID's
