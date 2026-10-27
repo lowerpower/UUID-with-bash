@@ -6,6 +6,9 @@
 #
 #  https://github.com/lowerpower/UUID-with-bash
 #
+#  Copyright (c) 2016-2026 Mike Johnson (Mycal)
+#  SPDX-License-Identifier: MIT
+#
 #  Generates UUID in the format 00000000-0000-0000-0000-000000000000
 #  Octet Numbers				00112233-4455-6677-8899-AABBCCDDEEFF
 #
@@ -84,8 +87,8 @@
 #
 
 #### Settings #####
-VERSION=0.0.2
-MODIFIED="June 9, 2021"
+VERSION=0.0.3
+MODIFIED="October 26, 2026"
 #
 # Defaults
 USE_CLOCK_SEQ=0
@@ -153,7 +156,8 @@ setVersion4()
 
 setMulticast()
 {
-    printf "%x" $((0x$1 | 0x010000000000))
+    # %012x keeps leading zeros so the node is always 12 hex digits
+    printf "%012x" $((0x$1 | 0x010000000000))
 }
 
 generate_uuid_null()
@@ -170,7 +174,12 @@ generate_uuid_v1()
     # remove : if found
     inmac=$1
     #mac=$(echo "$1" | sed -e 's/://g')
-    mac=$(echo "${inmac//:}")
+    mac=$(echo "${inmac//[:-]}" | tr 'A-F' 'a-f')
+    # a MAC is 6 bytes: exactly 12 hex digits once the separators are gone
+    if [ -n "${mac}" ] && ! [[ "${mac}" =~ ^[0-9a-f]{12}$ ]]; then
+        echo "error: MAC must be 6 bytes (12 hex digits), got '${inmac}'" >&2
+        exit 1
+    fi
 
     seconds=$(date -u +%s)
     snano100=$(expr $seconds \* 10000000)
